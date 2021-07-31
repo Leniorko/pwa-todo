@@ -1,73 +1,39 @@
 <template>
-  <div class="toDoList">
-    <div
-      class="task-container"
-      v-for="(task, index) in tasks"
-      v-bind:key="task.text"
-    >
-      <div class="current-task">
-        <p>{{ task.text }}</p>
-        <input type="checkbox" name="" id="" v-bind:checked="task.status" />
-        <div class="new-task" v-if="task === tasks[tasks.length - 1]">
+  <div class="todolist">
+    <div class="todolist__item" v-for="task in tasks" v-bind:key="task.text">
+      <div class="todolist__task">
+        <p class="todolist__text">{{ task.text }}</p>
+        <label class="todolist__custom-checkbox-container">
           <input
-            type="text"
+            type="checkbox"
             name=""
-            id=""
-            v-model="taskAddFieldValue"
-            v-on:keyup.enter="addTask()"
+            id="task-status"
+            class="todolist__checkbox"
+            v-bind:checked="task.status"
+            v-on:click="changeTaskState(task)"
           />
-          <p class="new-task__button" v-on:click="addTask()">Add new task</p>
-        </div>
+          <div class="todolist__custom-checkbox"></div>
+        </label>
+        <img
+          src="../assets/icons/delete_forever_black_24dp.svg"
+          alt=""
+          srcset=""
+          class="todolist__delete"
+          v-on:click="deleteTask(task)"
+        />
       </div>
-      <div class="subtask-wap" v-if="task.subtasks.length !== 0">
-        <div
-          class="subtasks"
-          v-for="subtask in task.subtasks"
-          v-bind:key="subtask.text"
-        >
-          <div class="subtask">
-            <p>{{ subtask.text }}</p>
-            <input
-              type="checkbox"
-              name=""
-              id=""
-              v-bind:checked="subtask.status"
-            />
-            <div
-              class="new-task"
-              v-if="subtask === task.subtasks[task.subtasks.length - 1]"
-            >
-              <input
-                type="text"
-                name=""
-                id=""
-                v-model="subtaskAddFieldValue[index]"
-                v-on:keyup.enter="addTask(task, index)"
-              />
-              <p class="new-task__button" v-on:click="addTask(task, index)">
-                Add new sub task
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="subtask-wrapper" v-else>
-        <div
-          class="new-task"
-          v-if="subtask === task.subtasks[task.subtasks.length - 1]"
-        >
-          <input
-            type="text"
-            name=""
-            id=""
-            v-model="subtaskAddFieldValue[index]"
-            v-on:keyup.enter="addTask(task, index)"
-          />
-          <p class="new-task__button" v-on:click="addTask(task, index)">
-            Add new sub task
-          </p>
-        </div>
-      </div>
+    </div>
+    <div class="todolist__new">
+      <input
+        type="text"
+        name=""
+        id="task-text"
+        placeholder="Enter task text..."
+        v-model="taskAddFieldValue"
+        class="todolist__new-input"
+        v-on:keyup.enter="addTask()"
+      />
+      <p class="todolist__new-button" v-on:click="addTask()">Add new task</p>
     </div>
   </div>
 </template>
@@ -84,41 +50,7 @@ export default {
     };
   },
   methods: {
-    addTask(task = false, subtaskFieldId = false) {
-      if (task) {
-        console.log("lmao");
-        console.log(task);
-        const addSubtaskCursor = this.db.transaction(["tasks"], "readwrite");
-        const requestTaskFromDb = addSubtaskCursor
-          .objectStore("tasks")
-          .get(task.id);
-
-        requestTaskFromDb.onsuccess = (event) => {
-          const taskFromDb = event.target.result;
-          console.log(this.subtaskAddFieldValue);
-          console.log(subtaskFieldId);
-          taskFromDb.subtasks.push({
-            text: this.subtaskAddFieldValue[subtaskFieldId],
-            status: false,
-          });
-
-          const requetUpdate = addSubtaskCursor
-            .objectStore("tasks")
-            .put(taskFromDb);
-
-          requetUpdate.onerror = (event) => {
-            console.log("Error during value update " + event.target.errorCode);
-          };
-
-          requetUpdate.onsuccess = () => {
-            console.log("Updatet sucsessfully");
-            this.updateTasksList();
-            this.subtaskAddFieldValue[subtaskFieldId] = "";
-          };
-        };
-        return;
-      }
-
+    addTask() {
       const addTaskCursor = this.db.transaction(["tasks"], "readwrite");
       const taskValue = this.taskAddFieldValue;
       if (taskValue.split(" ").join("").length === 0) {
@@ -150,6 +82,36 @@ export default {
         this.tasks = updatedData.result;
       };
     },
+
+    changeTaskState(task) {
+      let tasksObjectStore = this.db
+        .transaction(["tasks"], "readwrite")
+        .objectStore("tasks");
+
+      let ourTaskProcess = tasksObjectStore.get(task.id);
+      ourTaskProcess.onsuccess = (event) => {
+        let ourTask = event.target.result;
+
+        ourTask.status = !ourTask.status;
+
+        let ourTaskUpdateRequest = tasksObjectStore.put(ourTask);
+
+        ourTaskUpdateRequest.onsuccess = () => {
+          console.log("Status changed");
+        };
+      };
+    },
+
+    deleteTask(task) {
+      let tasksObjectStore = this.db
+        .transaction(["tasks"], "readwrite")
+        .objectStore("tasks");
+      let ourTaskProcess = tasksObjectStore.delete(task.id);
+      ourTaskProcess.onsuccess = () => {
+        console.log("Deleted");
+        this.updateTasksList();
+      };
+    },
   },
   beforeCreate() {
     let databaseRequest = window.indexedDB.open("pwaTodo", 5);
@@ -158,22 +120,10 @@ export default {
       {
         text: "Wash the dishes",
         status: false,
-        subtasks: [
-          { text: "Wash plastes", status: false },
-          { text: "Wash kaddle", status: false },
-        ],
       },
       {
         text: "Create ToDo app",
         status: false,
-        subtasks: [
-          { text: "Connect local db", status: true },
-          { text: "Create mockup data", status: true },
-          { text: "Populate db with date", status: false },
-          { text: "Show data from db", status: false },
-          { text: "Add interaction", status: false },
-          { text: "Add styles", status: false },
-        ],
       },
     ];
 
@@ -228,28 +178,93 @@ export default {
 </script>
 
 <style scoped>
-.task-container {
-  background-color: #787878;
+.todolist {
+  max-width: 400px;
+  margin: auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding: 0 16px;
 }
 
-.current-task {
+.todolist__item {
   display: flex;
-  gap: 16px;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: red;
+  width: 100%;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #787878;
 }
 
-.subtask {
+.todolist__text {
+  overflow-wrap: anywhere;
+}
+
+.todolist__task {
   display: flex;
   gap: 16px;
-  align-items: center;
-  justify-content: center;
-  background-color: green;
-  color: white;
+  width: 100%;
 }
 
-.new-task {
+.todolist__custom-checkbox-container {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.todolist__custom-checkbox {
+  width: 24px;
+  height: 24px;
+  border: 1px solid black;
+  border-radius: 6px;
   cursor: pointer;
+}
+
+.todolist__custom-checkbox:hover {
+  background-color: rgb(0, 153, 255);
+}
+
+.todolist__checkbox {
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+}
+
+.todolist__checkbox:checked ~ .todolist__custom-checkbox {
+  background-color: rgb(0, 110, 255);
+  background-image: url("../assets/icons/done_black_24dp.svg");
+}
+
+.todolist__delete {
+  cursor: pointer;
+}
+
+.todolist__new {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.todolist__new-input {
+  width: 100%;
+  font-size: 18px;
+  padding: 16px 16px 0 0;
+  border: none;
+  outline: none;
+  border-bottom: 1px solid black;
+}
+
+.todolist__new-button {
+  background: rgb(0, 191, 255);
+  width: fit-content;
+  padding: 8px;
+  color: white;
+  cursor: pointer;
+  border-radius: 16px;
+}
+
+.todolist__new-button:hover {
+  background: rgb(0, 140, 255);
 }
 </style>
