@@ -1,5 +1,7 @@
 # pwa-todo
 
+Simple TO-DO list written with vue. Works entirely local. Stores data inside Indexed DB. Made it PWA without any special features.
+
 ## Project setup
 ```
 npm install
